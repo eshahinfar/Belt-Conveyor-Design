@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ calculator_title }} | Engineering Calculators{% endblock %}
+
+{% block content %}
+<section class="forms single">
+  <article class="calculator active">
+    <header>
+      <h2>{{ calculator_title }}</h2>
+    </header>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form_id" value="{{ calculator_slug }}" />
+      {{ calculator_form.as_p }}
+      <div class="form-actions">
+        <button type="submit" name="action" value="calculate" class="primary">Calculate</button>
+        {% if user.is_authenticated %}
+        <button type="submit" name="action" value="save" class="secondary" {% if not result %}disabled{% endif %}>
+          Save result
+        </button>
+        {% endif %}
+      </div>
+    </form>
+  </article>
+</section>
+<aside class="results">
+  <div class="panel">
+    <h2>Results</h2>
+    {% if result %}
+    <p class="result-title">{{ result.title }}</p>
+    <p class="result-value">{{ result.value }} <span>{{ result.units }}</span></p>
+    <p class="result-description">{{ result.description }}</p>
+    {% else %}
+    <p class="placeholder">Submit the form to view computed engineering metrics.</p>
+    {% endif %}
+  </div>
+  <div class="panel">
+    <h3>How to use</h3>
+    <ul>
+      <li>Provide realistic conveyor design parameters for the selected topic.</li>
+      <li>Use consistent units. Throughput expects tonnes per hour, lift height uses metres.</li>
+      <li>The belt tension calculator leverages Euler's belt friction equation.</li>
+      <li>Sign in to keep a history of the calculations you rely on most.</li>
+    </ul>
+  </div>
+</aside>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Signed Out | Engineering Calculators{% endblock %}
+
+{% block content %}
+<section class="auth-form">
+  <div class="panel">
+    <h2>Signed out</h2>
+    <p>You have been signed out successfully.</p>
+    <p class="auth-switch"><a href="{% url 'login' %}">Sign in again</a> or explore another calculator.</p>
+  </div>
+</section>
+{% endblock %}
