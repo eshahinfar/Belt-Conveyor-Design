@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}My Saved Results | Engineering Calculators{% endblock %}
+
+{% block content %}
+<section class="saved-results">
+  <div class="panel">
+    <h2>Saved results</h2>
+    {% if records %}
+    <ul class="result-list">
+      {% for record in records %}
+      <li>
+        <h3>{{ record.get_calculator_slug_display }} – {{ record.created_at|date:"M j, Y H:i" }}</h3>
+        <p class="result-value">{{ record.result_value }} <span>{{ record.result_units }}</span></p>
+        <p class="result-title">{{ record.result_title }}</p>
+        {% if record.result_description %}
+        <p class="result-description">{{ record.result_description }}</p>
+        {% endif %}
+        <details>
+          <summary>Input values</summary>
+          <ul class="input-list">
+            {% for key, value in record.input_data.items %}
+            <li><strong>{{ key|capfirst }}:</strong> {{ value }}</li>
+            {% endfor %}
+          </ul>
+        </details>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="placeholder">You have not saved any results yet. Run a calculation and choose “Save result”.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
