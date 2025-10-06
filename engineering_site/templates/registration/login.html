@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In | Engineering Calculators{% endblock %}
+
+{% block content %}
+<section class="auth-form">
+  <div class="panel">
+    <h2>Sign in</h2>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="primary">Sign in</button>
+    </form>
+    <p class="auth-switch">New here? <a href="{% url 'calculations:signup' %}">Create an account.</a></p>
+  </div>
+</section>
+{% endblock %}

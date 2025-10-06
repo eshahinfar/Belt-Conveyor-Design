@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Engineering Calculators{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+    />
+    <link rel="stylesheet" href="{% static 'calculations/styles.css' %}" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="branding">
+        <h1><a href="{% url 'calculations:home' %}">Belt Conveyor Engineering Toolkit</a></h1>
+        <p>
+          Explore quick calculators for sizing drives, belts, and material handling equipment.
+        </p>
+      </div>
+      <nav class="site-nav">
+        <ul>
+          {% for slug, title in calculator_links %}
+          <li>
+            <a href="{% url 'calculations:calculator' slug=slug %}" class="{% if slug == calculator_slug %}active{% endif %}">
+              {{ title }}
+            </a>
+          </li>
+          {% endfor %}
+          <li><a href="{% url 'calculations:saved_results' %}">My results</a></li>
+        </ul>
+      </nav>
+      <div class="account-actions">
+        {% if user.is_authenticated %}
+        <span class="welcome">Hello, {{ user.username }}!</span>
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="link-button">Sign out</button>
+        </form>
+        {% else %}
+        <a href="{% url 'login' %}" class="link-button">Sign in</a>
+        <a href="{% url 'calculations:signup' %}" class="link-button">Create account</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="layout">
+      {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+        <li class="message {{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        Calculations are simplified and should be validated against project-specific standards such as CEMA or ISO 5048.
+      </p>
+    </footer>
+  </body>
+</html>

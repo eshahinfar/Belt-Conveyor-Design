@@ -176,3 +176,18 @@ def prepare_forms(bound_data: dict[str, str] | None = None) -> tuple[
         forms_list.append((form_slug, title, form))
 
     return forms_list, active_slug, result
+
+
+def get_calculator_form(slug: str, bound_data: dict[str, str] | None = None) -> tuple[str, forms.Form]:
+    """Return the configured calculator form for the provided slug."""
+
+    for form_slug, title, form_cls in CALCULATION_FORMS:
+        if slug == form_slug:
+            return title, form_cls(bound_data)
+    raise KeyError(f"Unknown calculator slug: {slug}")
+
+
+def get_calculator_links() -> list[tuple[str, str]]:
+    """Provide slug/title pairs for navigation menus."""
+
+    return [(slug, title) for slug, title, _ in CALCULATION_FORMS]
