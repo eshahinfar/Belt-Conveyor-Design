@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .forms import get_calculator_links
+from calculations.forms import get_calculator_links
 
 
 def calculator_navigation(request):
