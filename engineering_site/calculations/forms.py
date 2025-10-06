@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import math
 from dataclasses import dataclass
+from typing import Callable
 
 from django import forms
 
@@ -148,10 +151,322 @@ class BeltTensionForm(forms.Form):
         )
 
 
+class ShaftDesignForm(forms.Form):
+    """Design a rotating shaft for fatigue using Shigley's distortion-energy relations."""
+
+    DEFAULT_GEOMETRY = json.dumps(
+        [
+            {"length_mm": 150.0, "diameter_mm": 60.0},
+            {"length_mm": 120.0, "diameter_mm": 45.0},
+            {"length_mm": 150.0, "diameter_mm": 60.0},
+        ]
+    )
+
+    alternating_bending_moment = forms.FloatField(
+        label="Alternating bending moment M_a (N·m)",
+        min_value=0,
+        help_text="Fluctuating component of the bending moment at the critical location.",
+    )
+    mean_bending_moment = forms.FloatField(
+        label="Mean bending moment M_m (N·m)",
+        min_value=0,
+        help_text="Steady component of bending at the critical location.",
+        initial=0.0,
+    )
+    alternating_torque = forms.FloatField(
+        label="Alternating torque T_a (N·m)",
+        min_value=0,
+        help_text="Fluctuating component of transmitted torque.",
+        initial=0.0,
+    )
+    mean_torque = forms.FloatField(
+        label="Mean torque T_m (N·m)",
+        min_value=0,
+        help_text="Steady component of transmitted torque.",
+    )
+    bending_kf = forms.FloatField(
+        label="Fatigue stress concentration Kf",
+        min_value=1.0,
+        initial=1.8,
+        help_text="Use Figure A-15-9/6-26 values for the critical shoulder or keyway.",
+    )
+    torsion_kfs = forms.FloatField(
+        label="Torsional fatigue factor Kfs",
+        min_value=1.0,
+        initial=1.5,
+        help_text="Use Figure A-15-8/6-27 values for the same feature in torsion.",
+    )
+    endurance_limit = forms.FloatField(
+        label="Corrected endurance limit S_e (MPa)",
+        min_value=1.0,
+        initial=210.0,
+        help_text="Fully corrected endurance limit at the design location.",
+    )
+    ultimate_strength = forms.FloatField(
+        label="Ultimate tensile strength S_ut (MPa)",
+        min_value=1.0,
+        initial=700.0,
+    )
+    true_fracture_strength = forms.FloatField(
+        label="True fracture strength σ'_f (MPa)",
+        min_value=1.0,
+        required=False,
+        help_text="Needed for the DE-Morrow criterion; ≈ 1.45·S_ut for many steels.",
+    )
+    yield_strength = forms.FloatField(
+        label="Yield strength S_y (MPa)",
+        min_value=1.0,
+        required=False,
+        help_text="Optional check using the static von Mises stress (Eq. 7-15).",
+    )
+    design_factor = forms.FloatField(
+        label="Design factor n",
+        min_value=1.0,
+        initial=2.0,
+    )
+    shaft_geometry = forms.CharField(
+        label="Shaft geometry",
+        widget=forms.HiddenInput(),
+        initial=DEFAULT_GEOMETRY,
+    )
+    failure_criterion = forms.ChoiceField(
+        label="Fatigue criterion",
+        choices=(
+            ("de_goodman", "DE-Goodman"),
+            ("de_morrow", "DE-Morrow"),
+            ("de_gerber", "DE-Gerber"),
+            ("de_swt", "DE-SWT"),
+        ),
+        initial="de_goodman",
+    )
+
+    def clean(self) -> dict[str, float]:
+        data = super().clean()
+        criterion = data.get("failure_criterion")
+        if criterion == "de_morrow" and not data.get("true_fracture_strength"):
+            raise forms.ValidationError(
+                "Provide the true fracture strength to use the DE-Morrow relation."
+            )
+
+        raw_geometry = data.get("shaft_geometry")
+        try:
+            geometry = json.loads(raw_geometry) if raw_geometry else []
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise forms.ValidationError("Unable to parse the shaft geometry definition.") from exc
+
+        if not isinstance(geometry, list) or not geometry:
+            raise forms.ValidationError("Define at least one shaft segment in the geometry designer.")
+
+        parsed_geometry: list[dict[str, float]] = []
+        for index, segment in enumerate(geometry, start=1):
+            if not isinstance(segment, dict):
+                raise forms.ValidationError(
+                    f"Segment {index} is not a valid geometry description."
+                )
+            try:
+                length = float(segment["length_mm"])
+                diameter = float(segment["diameter_mm"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise forms.ValidationError(
+                    f"Segment {index} must include numeric length and diameter values."
+                ) from exc
+            if length <= 0 or diameter <= 0:
+                raise forms.ValidationError(
+                    f"Segment {index} requires positive length and diameter dimensions."
+                )
+            parsed_geometry.append({"length_mm": length, "diameter_mm": diameter})
+
+        self.geometry_segments = parsed_geometry
+        data["shaft_geometry"] = json.dumps(parsed_geometry)
+        return data
+
+    def calculate(self) -> CalculationResult:
+        design_factor = self.cleaned_data["design_factor"]
+        criterion = self.cleaned_data["failure_criterion"]
+
+        ma = self.cleaned_data["alternating_bending_moment"]
+        mm = self.cleaned_data["mean_bending_moment"]
+        ta = self.cleaned_data["alternating_torque"]
+        tm = self.cleaned_data["mean_torque"]
+        kf = self.cleaned_data["bending_kf"]
+        kfs = self.cleaned_data["torsion_kfs"]
+
+        se = self.cleaned_data["endurance_limit"] * 1_000_000.0
+        sut = self.cleaned_data["ultimate_strength"] * 1_000_000.0
+        sigma_f_prime = (
+            self.cleaned_data["true_fracture_strength"] * 1_000_000.0
+            if self.cleaned_data.get("true_fracture_strength")
+            else None
+        )
+        sy = (
+            self.cleaned_data["yield_strength"] * 1_000_000.0
+            if self.cleaned_data.get("yield_strength")
+            else None
+        )
+
+        def von_mises_components(diameter_m: float) -> tuple[float, float, float, float]:
+            """Return alternating/mean von Mises stresses for a solid shaft."""
+
+            if diameter_m <= 0:
+                raise ValueError("Diameter must be positive.")
+
+            denom = math.pi * diameter_m**3
+            bending_alt = (32.0 * kf * ma) / denom
+            bending_mean = (32.0 * kf * mm) / denom
+            torsion_alt = (16.0 * kfs * ta) / denom
+            torsion_mean = (16.0 * kfs * tm) / denom
+
+            sigma_a = math.sqrt(bending_alt**2 + 3.0 * torsion_alt**2)
+            sigma_m = math.sqrt(bending_mean**2 + 3.0 * torsion_mean**2)
+            return sigma_a, sigma_m, bending_alt + bending_mean, torsion_alt + torsion_mean
+
+        def safety_goodman(diameter_m: float) -> float:
+            sigma_a, sigma_m, *_ = von_mises_components(diameter_m)
+            denom = sigma_a / se + sigma_m / sut
+            if denom <= 0:
+                return math.inf
+            return 1.0 / denom
+
+        def safety_morrow(diameter_m: float) -> float:
+            if not sigma_f_prime:
+                return math.inf
+            sigma_a, sigma_m, *_ = von_mises_components(diameter_m)
+            denom = sigma_a / se + sigma_m / sigma_f_prime
+            if denom <= 0:
+                return math.inf
+            return 1.0 / denom
+
+        def safety_gerber(diameter_m: float) -> float:
+            sigma_a, sigma_m, *_ = von_mises_components(diameter_m)
+            denom = sigma_a / se + (sigma_m / sut) ** 2
+            if denom <= 0:
+                return math.inf
+            return 1.0 / denom
+
+        def safety_swt(diameter_m: float) -> float:
+            sigma_a, sigma_m, *_ = von_mises_components(diameter_m)
+            base = sigma_a**2 + sigma_a * sigma_m
+            if base <= 0:
+                return math.inf
+            return se / math.sqrt(base)
+
+        safety_functions = {
+            "de_goodman": safety_goodman,
+            "de_morrow": safety_morrow,
+            "de_gerber": safety_gerber,
+            "de_swt": safety_swt,
+        }
+        safety_functions_labels = {
+            "de_goodman": "DE-Goodman",
+            "de_morrow": "DE-Morrow",
+            "de_gerber": "DE-Gerber",
+            "de_swt": "DE-SWT",
+        }
+
+        def solve_diameter(safety_fn: Callable[[float], float]) -> float:
+            """Binary search the smallest diameter meeting the requested design factor."""
+
+            # If the safety factor already exceeds the requirement for a 1 mm shaft,
+            # return that minimum practical size.
+            lower = 0.001
+            if safety_fn(lower) >= design_factor:
+                return lower
+
+            upper = lower
+            for _ in range(40):
+                upper *= 2.0
+                if safety_fn(upper) >= design_factor:
+                    break
+            else:
+                # Loads are so large that even a 1 m shaft is insufficient.
+                raise ValueError(
+                    "Unable to satisfy the requested design factor below 1 metre diameter."
+                )
+
+            for _ in range(80):
+                mid = 0.5 * (lower + upper)
+                if safety_fn(mid) >= design_factor:
+                    upper = mid
+                else:
+                    lower = mid
+            return upper
+
+        diameters_m: dict[str, float] = {}
+        for key, fn in safety_functions.items():
+            if key == "de_morrow" and not sigma_f_prime:
+                continue
+            diameters_m[key] = solve_diameter(fn)
+
+        if criterion == "de_morrow" and "de_morrow" not in diameters_m:
+            raise forms.ValidationError(
+                "Unable to evaluate the DE-Morrow criterion without σ'_f."
+            )
+
+        selected_diameter_m = diameters_m[criterion]
+        selected_mm = selected_diameter_m * 1000.0
+        recommended_mm = math.ceil(selected_mm)
+
+        # Calculate the static von Mises check using Eq. (7-15).
+        sigma_a, sigma_m, bending_total, torsion_total = von_mises_components(
+            selected_diameter_m
+        )
+        sigma_max = math.sqrt(bending_total**2 + 3.0 * torsion_total**2)
+        ny = sy / sigma_max if sy else None
+
+        lines: list[str] = []
+        for key in safety_functions:
+            if key not in diameters_m:
+                continue
+            value_mm = diameters_m[key] * 1000.0
+            lines.append(f"{safety_functions_labels[key]} → {value_mm:.2f} mm")
+
+        if ny:
+            lines.append(
+                f"Static yield factor of safety n_y ≈ {ny:.2f} at the selected diameter."
+            )
+
+        description = (
+            "Fatigue diameters solved by binary search using the distortion-energy "
+            "relations (Eqs. 7-6 to 7-14). "
+            "Recommended to specify a {recommended_mm:.0f} mm shaft or the next larger "
+            "standard size."
+        ).format(recommended_mm=recommended_mm)
+
+        geometry_segments = getattr(self, "geometry_segments", [])
+        if geometry_segments:
+            min_geometry_diameter = min(segment["diameter_mm"] for segment in geometry_segments)
+            total_length = sum(segment["length_mm"] for segment in geometry_segments)
+            lines.append(
+                (
+                    "Drawn shaft summary → minimum diameter {min_d:.1f} mm over {count} segments "
+                    "spanning {length:.0f} mm total length."
+                ).format(
+                    min_d=min_geometry_diameter,
+                    count=len(geometry_segments),
+                    length=total_length,
+                )
+            )
+            if min_geometry_diameter + 1e-6 < selected_mm:
+                lines.append(
+                    "Warning: the required diameter exceeds the thinnest segment in the geometry."
+                )
+
+        if lines:
+            description += "\n" + "\n".join(lines)
+
+        return CalculationResult(
+            title="Required shaft diameter",
+            description=description,
+            value=round(selected_mm, 2),
+            units="mm",
+        )
+
+
 CALCULATION_FORMS: tuple[tuple[str, str, type[forms.Form]], ...] = (
     ("belt_power", "Belt power", BeltPowerForm),
     ("pulley_torque", "Pulley torque", PulleyTorqueForm),
     ("belt_tension", "Belt tension", BeltTensionForm),
+    ("shaft_design", "Shaft design", ShaftDesignForm),
 )
 
 

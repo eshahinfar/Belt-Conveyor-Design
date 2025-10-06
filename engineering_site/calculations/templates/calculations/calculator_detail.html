@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ calculator_title }} | Engineering Calculators{% endblock %}
 
@@ -11,7 +12,82 @@
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="form_id" value="{{ calculator_slug }}" />
-      {{ calculator_form.as_p }}
+      {% for field in calculator_form %}
+      {% if field.name == "shaft_geometry" %}
+      <div class="form-field hidden">{{ field }}</div>
+      <div
+        class="shaft-geometry-editor"
+        data-geometry-editor
+        data-field-id="{{ field.id_for_label }}"
+      >
+        <div class="shaft-geometry-header">
+          <h3>Interactive shaft geometry</h3>
+          <p>
+            Sketch the stepped shaft by adjusting segment lengths and diameters. The
+            geometry feeds the fatigue check and highlights whether the required
+            diameter fits your current concept.
+          </p>
+        </div>
+        {% if field.errors %}
+        <ul class="errorlist">
+          {% for error in field.errors %}
+          <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        <div class="shaft-geometry-layout" data-geometry-app>
+          <div class="shaft-preview-wrapper">
+            <svg
+              class="shaft-preview"
+              viewBox="0 0 620 200"
+              role="img"
+              aria-label="Scaled preview of the shaft profile"
+              data-geometry-preview
+            ></svg>
+            <p class="shaft-preview-caption">
+              Preview scales diameters relative to the largest segment and lengths to
+              the overall span.
+            </p>
+          </div>
+          <div class="shaft-geometry-controls">
+            <table class="shaft-geometry-table">
+              <thead>
+                <tr>
+                  <th scope="col">Segment</th>
+                  <th scope="col">Length (mm)</th>
+                  <th scope="col">Diameter (mm)</th>
+                  <th scope="col" class="actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody data-geometry-rows></tbody>
+            </table>
+            <div class="shaft-geometry-actions">
+              <button type="button" class="secondary" data-add-segment>
+                Add segment
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="shaft-geometry-note">
+          Tips: click in a cell to type precise values, use the remove buttons to delete
+          segments, and keep the leftmost segment at the drive end for clarity.
+        </p>
+      </div>
+      {% else %}
+      <div class="form-field{% if field.errors %} has-error{% endif %}">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<small class="helptext">{{ field.help_text }}</small>{% endif %}
+        {% if field.errors %}
+        <ul class="errorlist">
+          {% for error in field.errors %}
+          <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
       <div class="form-actions">
         <button type="submit" name="action" value="calculate" class="primary">Calculate</button>
         {% if user.is_authenticated %}
@@ -44,4 +120,7 @@
     </ul>
   </div>
 </aside>
+{% if calculator_slug == "shaft_design" %}
+<script src="{% static 'calculations/shaft_geometry.js' %}"></script>
+{% endif %}
 {% endblock %}

@@ -3,6 +3,7 @@
   font-family: "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background-color: #0f172a;
   color: #e2e8f0;
+  --shaft-preview-bg: rgba(15, 23, 42, 0.65);
 }
 
 body {
@@ -171,6 +172,38 @@ body {
   font-size: 1rem;
 }
 
+.form-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.form-field.hidden {
+  display: none;
+}
+
+.form-field label {
+  font-weight: 600;
+}
+
+.form-field.has-error input,
+.form-field.has-error select,
+.form-field.has-error textarea {
+  border-color: rgba(248, 113, 113, 0.6);
+}
+
+.errorlist {
+  list-style: none;
+  margin: 0.25rem 0 0 0;
+  padding: 0;
+  color: #fca5a5;
+  font-size: 0.85rem;
+}
+
+.errorlist li + li {
+  margin-top: 0.25rem;
+}
+
 .calculator .helptext {
   display: block;
   margin-top: -0.5rem;
@@ -214,6 +247,123 @@ body {
 .secondary[disabled] {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.shaft-geometry-editor {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 15px 35px rgba(8, 47, 73, 0.35);
+}
+
+.shaft-geometry-header h3 {
+  margin: 0 0 0.35rem 0;
+}
+
+.shaft-geometry-header p {
+  margin: 0 0 1rem 0;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.shaft-geometry-layout {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
+  align-items: start;
+}
+
+.shaft-preview-wrapper {
+  background: rgba(15, 23, 42, 0.75);
+  border-radius: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.shaft-preview {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0.65rem;
+}
+
+.shaft-preview-caption {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.85rem;
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.shaft-geometry-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.shaft-geometry-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.shaft-geometry-table th,
+.shaft-geometry-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  text-align: left;
+}
+
+.shaft-geometry-table th {
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.9);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.shaft-geometry-table td.actions,
+.shaft-geometry-table th.actions {
+  text-align: center;
+  width: 110px;
+}
+
+.shaft-geometry-table tr:last-child td {
+  border-bottom: none;
+}
+
+.shaft-geometry-table input[type="number"] {
+  margin: 0;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.shaft-geometry-table button {
+  background: none;
+  border: none;
+  color: #38bdf8;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.shaft-geometry-table button:hover {
+  text-decoration: underline;
+}
+
+.shaft-geometry-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shaft-geometry-summary {
+  margin: 1rem 0 0 0;
+  font-weight: 500;
+  color: #bae6fd;
+}
+
+.shaft-geometry-note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: rgba(148, 163, 184, 0.85);
 }
 
 .form-actions {
@@ -369,5 +519,20 @@ body {
   .account-actions {
     flex-wrap: wrap;
     justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+  .shaft-geometry-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .shaft-geometry-table td.actions,
+  .shaft-geometry-table th.actions {
+    width: auto;
+  }
+
+  .shaft-geometry-actions {
+    justify-content: stretch;
   }
 }
