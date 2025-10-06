@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from typing import Callable
@@ -153,6 +154,14 @@ class BeltTensionForm(forms.Form):
 class ShaftDesignForm(forms.Form):
     """Design a rotating shaft for fatigue using Shigley's distortion-energy relations."""
 
+    DEFAULT_GEOMETRY = json.dumps(
+        [
+            {"length_mm": 150.0, "diameter_mm": 60.0},
+            {"length_mm": 120.0, "diameter_mm": 45.0},
+            {"length_mm": 150.0, "diameter_mm": 60.0},
+        ]
+    )
+
     alternating_bending_moment = forms.FloatField(
         label="Alternating bending moment M_a (N·m)",
         min_value=0,
@@ -215,6 +224,11 @@ class ShaftDesignForm(forms.Form):
         min_value=1.0,
         initial=2.0,
     )
+    shaft_geometry = forms.CharField(
+        label="Shaft geometry",
+        widget=forms.HiddenInput(),
+        initial=DEFAULT_GEOMETRY,
+    )
     failure_criterion = forms.ChoiceField(
         label="Fatigue criterion",
         choices=(
@@ -233,6 +247,37 @@ class ShaftDesignForm(forms.Form):
             raise forms.ValidationError(
                 "Provide the true fracture strength to use the DE-Morrow relation."
             )
+
+        raw_geometry = data.get("shaft_geometry")
+        try:
+            geometry = json.loads(raw_geometry) if raw_geometry else []
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise forms.ValidationError("Unable to parse the shaft geometry definition.") from exc
+
+        if not isinstance(geometry, list) or not geometry:
+            raise forms.ValidationError("Define at least one shaft segment in the geometry designer.")
+
+        parsed_geometry: list[dict[str, float]] = []
+        for index, segment in enumerate(geometry, start=1):
+            if not isinstance(segment, dict):
+                raise forms.ValidationError(
+                    f"Segment {index} is not a valid geometry description."
+                )
+            try:
+                length = float(segment["length_mm"])
+                diameter = float(segment["diameter_mm"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise forms.ValidationError(
+                    f"Segment {index} must include numeric length and diameter values."
+                ) from exc
+            if length <= 0 or diameter <= 0:
+                raise forms.ValidationError(
+                    f"Segment {index} requires positive length and diameter dimensions."
+                )
+            parsed_geometry.append({"length_mm": length, "diameter_mm": diameter})
+
+        self.geometry_segments = parsed_geometry
+        data["shaft_geometry"] = json.dumps(parsed_geometry)
         return data
 
     def calculate(self) -> CalculationResult:
@@ -386,6 +431,25 @@ class ShaftDesignForm(forms.Form):
             "Recommended to specify a {recommended_mm:.0f} mm shaft or the next larger "
             "standard size."
         ).format(recommended_mm=recommended_mm)
+
+        geometry_segments = getattr(self, "geometry_segments", [])
+        if geometry_segments:
+            min_geometry_diameter = min(segment["diameter_mm"] for segment in geometry_segments)
+            total_length = sum(segment["length_mm"] for segment in geometry_segments)
+            lines.append(
+                (
+                    "Drawn shaft summary → minimum diameter {min_d:.1f} mm over {count} segments "
+                    "spanning {length:.0f} mm total length."
+                ).format(
+                    min_d=min_geometry_diameter,
+                    count=len(geometry_segments),
+                    length=total_length,
+                )
+            )
+            if min_geometry_diameter + 1e-6 < selected_mm:
+                lines.append(
+                    "Warning: the required diameter exceeds the thinnest segment in the geometry."
+                )
 
         if lines:
             description += "\n" + "\n".join(lines)
