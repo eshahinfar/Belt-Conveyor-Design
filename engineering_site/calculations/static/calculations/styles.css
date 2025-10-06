@@ -14,27 +14,105 @@ body {
 
 .site-header,
 .site-footer {
-  padding: 2rem clamp(1rem, 4vw, 4rem);
+  padding: 1.5rem clamp(1rem, 4vw, 4rem);
   background: linear-gradient(120deg, #0f172a, #1e293b);
-  text-align: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
 }
 
 .site-footer {
   border-top: 1px solid rgba(148, 163, 184, 0.2);
   margin-top: auto;
+  text-align: center;
+}
+
+.site-header .branding {
+  flex: 1 1 240px;
+  min-width: 220px;
 }
 
 .site-header h1 {
-  margin-bottom: 0.25rem;
-  font-size: clamp(2rem, 5vw, 3rem);
+  margin: 0 0 0.35rem 0;
+  font-size: clamp(1.5rem, 4vw, 2.4rem);
+}
+
+.site-header h1 a {
+  color: inherit;
+  text-decoration: none;
 }
 
 .site-header p,
 .site-footer p {
-  margin: 0 auto;
+  margin: 0;
   max-width: 65ch;
   color: #cbd5f5;
+}
+
+.site-nav {
+  flex: 2 1 300px;
+}
+
+.site-nav ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+}
+
+.site-nav a {
+  display: inline-block;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid transparent;
+  color: #e2e8f0;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.site-nav a:hover,
+.site-nav a.active {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.2);
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.account-actions .welcome {
+  font-weight: 500;
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.75);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  border-color: #38bdf8;
+}
+
+.account-actions form {
+  margin: 0;
 }
 
 .layout {
@@ -47,6 +125,10 @@ body {
 .forms {
   display: grid;
   gap: 1.5rem;
+}
+
+.forms.single {
+  grid-template-columns: 1fr;
 }
 
 .calculator {
@@ -75,7 +157,9 @@ body {
   color: #e2e8f0;
 }
 
-.calculator input[type="number"] {
+.calculator input[type="number"],
+.calculator input[type="text"],
+.calculator input[type="password"] {
   width: 100%;
   padding: 0.6rem 0.75rem;
   margin-top: 0.35rem;
@@ -109,6 +193,33 @@ body {
 .primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 25px rgba(56, 189, 248, 0.35);
+}
+
+.secondary {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 0.65rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.secondary:hover:not([disabled]) {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.secondary[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .results {
@@ -150,6 +261,94 @@ body {
   color: rgba(148, 163, 184, 0.8);
 }
 
+.messages {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0 0 1rem 0;
+  padding: 0;
+}
+
+.message {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.message.success {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.message.error {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.saved-results .panel {
+  max-width: 840px;
+}
+
+.result-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.result-list li {
+  background: rgba(15, 23, 42, 0.75);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.result-list details {
+  margin-top: 0.75rem;
+}
+
+.input-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+
+.input-list li {
+  margin-bottom: 0.35rem;
+}
+
+.auth-form .panel {
+  max-width: 420px;
+}
+
+.auth-switch {
+  margin-top: 1rem;
+}
+
+.auth-form form {
+  display: grid;
+}
+
+.auth-form label {
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.auth-form input[type="text"],
+.auth-form input[type="password"],
+.auth-form input[type="email"] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  color: inherit;
+  font-size: 1rem;
+}
+
 @media (max-width: 768px) {
   .layout {
     grid-template-columns: 1fr;
@@ -157,5 +356,18 @@ body {
 
   .results {
     order: -1;
+  }
+
+  .site-header {
+    justify-content: center;
+  }
+
+  .site-nav ul {
+    justify-content: center;
+  }
+
+  .account-actions {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
